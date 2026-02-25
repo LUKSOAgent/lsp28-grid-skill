@@ -200,24 +200,8 @@ node scripts/update-grid.js --example
 node scripts/update-grid.js --file my-grid.json
 ```
 
-## Building Mini-Apps for The Grid
-
-Use the official LUKSO mini-app template as the starting point:
-
-- **Template:** https://github.com/lukso-network/miniapp-nextjs-template (Next.js, official)
-- Uses `@lukso/up-provider` (createClientUPProvider) — do NOT use `window.lukso` directly
-- Uses `@erc725/erc725.js` for profile data — do NOT manually call `getData()`
-- Uses `@lukso/lsp-utils` for high-level helpers (getProfileMetadata, etc.)
-- Uses `@lukso/web-components` for branded UI elements
-
-> ⚠️ `tools-dapp-boilerplate` is a full dApp template, not the recommended starting point for Grid mini-apps. Use `miniapp-nextjs-template` instead.
-
 ## References
 
 - `references/lsp28-spec.md` - Full LSP28 specification
 - `scripts/update-grid.js` - Complete working example
 - LSP28 Standard: https://github.com/lukso-network/LIPs/blob/main/LSPs/LSP-28-TheGrid.md
-- Mini-app template: https://github.com/lukso-network/miniapp-nextjs-template
-- UP Provider: https://github.com/lukso-network/tools-up-provider
-- ERC725.js: https://github.com/ERC725Alliance/erc725.js
-- LSP Utils: https://github.com/lukso-network/lsp-utils
