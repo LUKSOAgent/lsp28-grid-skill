@@ -1,186 +1,315 @@
-# LSP28 The Grid Specification
+# LSP28 The Grid — Specification Reference
 
 ## Overview
 
-LSP28 The Grid is a standard for organizing and displaying content on Universal Profiles. It allows UP owners to create a grid layout of mini-apps, iframes, and external links.
+LSP28 The Grid is a standard for organizing and displaying modular content on Universal Profiles. It allows UP owners to create a multi-tab grid layout containing mini-apps, iframes, social embeds, images, text blocks, and other interactive content.
+
+> **Draft standard:** LSP28 is currently a draft. The data key is not yet exported from `@lukso/lsp-smart-contracts`. Define the ERC725Y schema inline until the standard is finalised.
+
+---
 
 ## Data Key
 
 ```
-0x31cf14955c5b0052c1491ec06644438ec7c14454be5eb6cb9ce4e4edef647423
+keccak256('LSP28TheGrid') = 0x724141d9918ce69e6b8afcf53a91748466086ba2c74b94cab43c649ae2ac23ff
 ```
 
-This is the keccak256 hash of 'LSP28Grid'.
+⚠️ Note: An earlier draft used `0x31cf14955c5b0052c1491ec06644438ec7c14454be5eb6cb9ce4e4edef647423` — this is **incorrect** and should not be used.
+
+**ERC725Y JSON Schema:**
+```json
+{
+  "name": "LSP28TheGrid",
+  "key": "0x724141d9918ce69e6b8afcf53a91748466086ba2c74b94cab43c649ae2ac23ff",
+  "keyType": "Singleton",
+  "valueType": "bytes",
+  "valueContent": "VerifiableURI"
+}
+```
+
+---
 
 ## Data Format
 
-The grid data is stored as a VerifiableURI, which is a base64-encoded JSON object:
+The grid data is stored as a **VerifiableURI** (defined by [LSP2](https://docs.lukso.tech/standards/metadata/lsp2-json-schema/#verifiableuri)).
+
+### VerifiableURI Bytes Layout
 
 ```
-data:application/json;base64,<base64-encoded-json>
+bytes2  hashFunctionSelector   // 0x6f357c6a = keccak256(utf8) selector
+bytes32 contentHash            // keccak256 hash of the JSON string (or IPFS content)
+bytes   uri                    // UTF-8 encoded URI (data:application/json;base64,... or ipfs://...)
 ```
+
+The URI points to the JSON data — either:
+- **Inline base64**: `data:application/json;base64,<base64-encoded-json>` (convenient, on-chain)
+- **IPFS**: `ipfs://<CID>` (preferred for large grids; keeps on-chain storage minimal)
+
+Use `ERC725.encodeData()` from [erc725.js](https://docs.lukso.tech/tools/libraries/erc725js/methods/#encodedata) for correct encoding.
+
+---
 
 ## JSON Schema
 
 ```typescript
-interface GridData {
-  isEditable: boolean;  // Whether the grid can be edited
-  items: GridItem[];    // Array of grid items
+interface LSP28TheGridData {
+  LSP28TheGrid: Tab[];
 }
 
-interface GridItem {
-  type: 'miniapp' | 'iframe' | 'external';
-  id: string;           // Unique identifier
-  title: string;        // Display title
+interface Tab {
+  title: string;           // Required: display name of the tab
+  gridColumns: number;     // Required: number of columns (recommended 2–4)
+  visibility?: 'public' | 'private';  // Optional: UI hint only (data still on-chain)
+  grid: GridElement[];     // Required: array of grid elements
 }
 
-interface MiniAppItem extends GridItem {
-  type: 'miniapp';
-  text: string;         // Button/label text
-  backgroundColor: string;  // Hex color (e.g., '#fe005b')
-  textColor: string;    // Hex color for text (e.g., '#ffffff')
-  size?: 'small' | 'medium' | 'large';
+interface GridElement {
+  width: number;           // Required: width in grid steps (recommended 1–3)
+  height: number;          // Required: height in grid steps (recommended 1–3)
+  type: ElementType;       // Required: element type (see below)
+  properties: object;      // Required: type-specific properties
 }
 
-interface IframeItem extends GridItem {
-  type: 'iframe';
-  src: string;          // iframe source URL
-}
-
-interface ExternalItem extends GridItem {
-  type: 'external';
-  url: string;          // External link URL
-}
+type ElementType =
+  | 'IFRAME'
+  | 'TEXT'
+  | 'IMAGES'
+  | 'X'
+  | 'ELFSIGHT'
+  | 'INSTAGRAM'
+  | 'QR_CODE';
+  // Custom types are also allowed by the spec
 ```
 
-## Item Types
+---
 
-### Mini-App (type: 'miniapp')
+## Element Types
 
-Interactive button that can trigger actions within the grid context.
+### IFRAME — Embedded Web Content / Mini-Apps
 
-**Properties:**
-- `type`: 'miniapp' (required)
-- `id`: Unique string identifier (required)
-- `title`: Display title (required)
-- `text`: Button text label (required)
-- `backgroundColor`: Background color in hex format (required)
-- `textColor`: Text color in hex format (required)
-- `size`: Optional size variant ('small', 'medium', 'large')
-
-**Example:**
 ```json
 {
-  "type": "miniapp",
-  "id": "staking",
-  "title": "Stakingverse",
-  "text": "Stake LYX",
-  "backgroundColor": "#1a1a2e",
-  "textColor": "#ffffff"
+  "width": 2,
+  "height": 3,
+  "type": "IFRAME",
+  "properties": {
+    "src": "https://my-mini-app.com",
+    "allow": "accelerometer; autoplay; clipboard-write",
+    "sandbox": "allow-forms;allow-pointer-lock;allow-popups;allow-same-origin;allow-scripts;allow-top-navigation",
+    "allowfullscreen": true,
+    "referrerpolicy": "no-referrer"
+  }
 }
 ```
 
-### IFrame (type: 'iframe')
+| Property | Required | Description |
+|---|---|---|
+| `src` | ✅ | URL to embed |
+| `allow` | ❌ | Iframe [Permissions Policy](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/iframe#allow) |
+| `sandbox` | ❌ | Iframe [sandbox](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/iframe#sandbox) restrictions |
+| `allowfullscreen` | ❌ | Allow fullscreen mode |
+| `referrerpolicy` | ❌ | Referrer policy |
 
-Embeds external content directly in the grid.
+### TEXT — Text Content Block
 
-**Properties:**
-- `type`: 'iframe' (required)
-- `id`: Unique string identifier (required)
-- `title`: Display title (required)
-- `src`: iframe source URL (required)
-
-**Example:**
 ```json
 {
-  "type": "iframe",
-  "id": "chart",
-  "title": "Price Chart",
-  "src": "https://dexscreener.com/lukso/CHART_URL"
+  "width": 2,
+  "height": 2,
+  "type": "TEXT",
+  "properties": {
+    "title": "About Me",
+    "titleColor": "#ffffff",
+    "text": "Building on **LUKSO** 🆙",
+    "textColor": "#cccccc",
+    "backgroundColor": "#1a1a2e",
+    "backgroundImage": "https://example.com/bg.jpg",
+    "link": "https://lukso.network"
+  }
 }
 ```
 
-### External Link (type: 'external')
+| Property | Required | Description |
+|---|---|---|
+| `title` | ❌ | Title text (supports Markdown) |
+| `titleColor` | ❌ | Override color for the title |
+| `text` | ❌ | Body text (supports Markdown) |
+| `textColor` | ❌ | Text color (hex) |
+| `backgroundColor` | ❌ | Background color (hex) |
+| `backgroundImage` | ❌ | Background image URL |
+| `link` | ❌ | Makes the entire block clickable |
 
-Links to external websites that open in a new tab.
+### IMAGES — Image Gallery
 
-**Properties:**
-- `type`: 'external' (required)
-- `id`: Unique string identifier (required)
-- `title`: Display title (required)
-- `url`: External URL (required)
-
-**Example:**
 ```json
 {
-  "type": "external",
-  "id": "docs",
-  "title": "Documentation",
-  "url": "https://docs.lukso.tech"
+  "width": 2,
+  "height": 2,
+  "type": "IMAGES",
+  "properties": {
+    "type": "carousel",
+    "images": [
+      "https://example.com/photo1.jpg",
+      "ipfs://bafk.../photo2.jpg"
+    ]
+  }
 }
 ```
+
+| Property | Required | Description |
+|---|---|---|
+| `images` | ✅ | Array of image URLs (HTTPS or IPFS) |
+| `type` | ❌ | `'grid'` (default) or `'carousel'` |
+
+### X — X/Twitter Embed
+
+```json
+{
+  "width": 2,
+  "height": 1,
+  "type": "X",
+  "properties": {
+    "type": "post",
+    "username": "lukso_io",
+    "id": "1804519711377436675",
+    "theme": "light",
+    "language": "en",
+    "donottrack": true
+  }
+}
+```
+
+| Property | Required | Description |
+|---|---|---|
+| `type` | ✅ | `'post'` or `'timeline'` |
+| `username` | ✅ | X/Twitter handle |
+| `id` | ✅ (for post) | Post ID |
+| `theme` | ❌ | `'light'` or `'dark'` |
+| `language` | ❌ | Language code (e.g. `'en'`) |
+| `donottrack` | ❌ | Opt out of tracking |
+
+### ELFSIGHT — Widget Embed
+
+```json
+{
+  "width": 2,
+  "height": 1,
+  "type": "ELFSIGHT",
+  "properties": {
+    "id": "your-elfsight-widget-id"
+  }
+}
+```
+
+| Property | Required | Description |
+|---|---|---|
+| `id` | ✅ | Elfsight widget ID |
+
+### INSTAGRAM — Instagram Post Embed
+
+```json
+{
+  "width": 2,
+  "height": 2,
+  "type": "INSTAGRAM",
+  "properties": {
+    "type": "p",
+    "id": "your-post-id"
+  }
+}
+```
+
+| Property | Required | Description |
+|---|---|---|
+| `type` | ✅ | `'p'` (post) or `'reel'` |
+| `id` | ✅ | Instagram post/reel ID |
+
+### QR_CODE — QR Code
+
+```json
+{
+  "width": 2,
+  "height": 1,
+  "type": "QR_CODE",
+  "properties": {
+    "data": "https://universaleverything.io/your-profile"
+  }
+}
+```
+
+| Property | Required | Description |
+|---|---|---|
+| `data` | ✅ | Data to encode in the QR code |
+
+---
 
 ## Best Practices
 
+### Width / Height Layout
+
+- `gridColumns` on the tab controls how many columns the layout has (typically 2).
+- Element `width` and `height` are in **grid steps** — e.g., `width: 2` on a 2-column grid spans the full width.
+- Recommended: `width` 1–3, `height` 1–3 for most elements.
+- Full-width banner: `{ width: gridColumns, height: 1 }`
+- Square tile: `{ width: 1, height: 1 }`
+
 ### Color Contrast
 
-Always ensure sufficient contrast between background and text colors:
+Always ensure sufficient contrast between background and text:
 
-| Background | Text Color | Contrast Ratio |
-|------------|-----------|----------------|
-| #1a1a2e (dark) | #ffffff (white) | 15.8:1 ✓ |
-| #ffffff (white) | #000000 (black) | 21:1 ✓ |
-| #fe005b (pink) | #ffffff (white) | 4.5:1 ✓ |
-| #000000 (black) | #fe005b (pink) | 4.5:1 ✓ |
+| Background | Text | Contrast |
+|---|---|---|
+| `#1a1a2e` (dark) | `#ffffff` (white) | 15.8:1 ✅ |
+| `#ffffff` (white) | `#000000` (black) | 21:1 ✅ |
+| `#fe005b` (pink) | `#ffffff` (white) | 4.5:1 ✅ |
+| `#000000` (black) | `#fe005b` (pink) | 4.5:1 ✅ |
 
-### ID Uniqueness
+### IPFS vs Inline Base64
 
-Each grid item must have a unique `id` within the grid. Using descriptive IDs helps with debugging:
-- Good: 'stakingverse', 'twitter-link', 'price-chart'
-- Bad: '1', '2', 'item1'
+For large grids (many elements or large images), upload the JSON to IPFS and use an `ipfs://` URI. This reduces on-chain storage costs significantly. For small grids, `data:application/json;base64,…` is convenient and avoids a separate IPFS dependency.
 
-### URL Safety
-
-For iframe and external items, ensure URLs:
-- Use HTTPS when possible
-- Allow iframe embedding (for iframe type)
-- Are from trusted sources
+---
 
 ## Common Errors
 
-### Wrong Property Names
+### Wrong data key
 
-❌ Wrong:
-```json
-{
-  "type": "miniapp",
-  "color": "#fe005b",
-  "content": "Click me"
-}
-```
-
-✅ Correct:
-```json
-{
-  "type": "miniapp",
-  "backgroundColor": "#fe005b",
-  "text": "Click me"
-}
-```
-
-### Missing Required Fields
-
-All items must have: `type`, `id`, `title`
-Mini-apps additionally require: `text`, `backgroundColor`, `textColor`
-
-### Invalid JSON
-
-Always validate JSON before encoding:
 ```javascript
-JSON.parse(jsonString); // Should not throw
+// ❌ WRONG — old incorrect hash:
+const LSP28_GRID_KEY = '0x31cf14955c5b0052c1491ec06644438ec7c14454be5eb6cb9ce4e4edef647423';
+
+// ✅ CORRECT — keccak256('LSP28TheGrid'):
+const LSP28_GRID_KEY = '0x724141d9918ce69e6b8afcf53a91748466086ba2c74b94cab43c649ae2ac23ff';
 ```
+
+### Old flat grid format
+
+```javascript
+// ❌ WRONG — outdated isEditable/items format:
+const gridData = { isEditable: true, items: [{ type: 'miniapp', id: '...', ... }] };
+
+// ✅ CORRECT — LSP28TheGrid array-of-tabs structure:
+const gridData = {
+  LSP28TheGrid: [{ title: 'Tab Name', gridColumns: 2, grid: [...] }]
+};
+```
+
+### Wrong VerifiableURI encoding
+
+```javascript
+// ❌ WRONG — passing a raw string:
+setData(key, ethers.toUtf8Bytes('data:application/json;base64,...'))
+
+// ✅ CORRECT — use ERC725.js encodeData() or the manual concat approach:
+const verifiableUriBytes = ethers.concat([hashFunctionSelector, contentHash, ethers.toUtf8Bytes(dataUri)]);
+setData(key, verifiableUriBytes)
+```
+
+---
 
 ## Resources
 
-- LSP28 Specification: https://github.com/lukso-network/LIPs/blob/main/LSPs/LSP-28-TheGrid.md
-- LUKSO Docs: https://docs.lukso.tech
+- LSP28 Standard: https://github.com/lukso-network/LIPs/blob/main/LSPs/LSP-28-TheGrid.md
+- LUKSO Docs — Setting Your Grid: https://docs.lukso.tech/learn/mini-apps/setting-your-grid/
+- LSP2 VerifiableURI: https://docs.lukso.tech/standards/metadata/lsp2-json-schema/#verifiableuri
+- ERC725.js encodeData: https://docs.lukso.tech/tools/libraries/erc725js/methods/#encodedata
