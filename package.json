@@ -1,0 +1,13 @@
+{
+  "name": "lsp28-grid-skill",
+  "version": "1.0.0",
+  "description": "OpenClaw skill for managing LSP28 The Grid on LUKSO Universal Profiles",
+  "scripts": {
+    "update-grid": "node scripts/update-grid.js"
+  },
+  "dependencies": {
+    "@erc725/erc725.js": "^0.24.0",
+    "ethers": "^6.0.0"
+  },
+  "license": "MIT"
+}

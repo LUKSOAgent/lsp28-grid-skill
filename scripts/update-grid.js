@@ -1,4 +1,5 @@
 const { ethers } = require('ethers');
+const ERC725 = require('@erc725/erc725.js').default;
 const fs = require('fs');
 
 // Configuration — set via environment variables or edit directly
@@ -23,9 +24,10 @@ const LSP6_ABI = [
 ];
 
 /**
- * Encode grid JSON as a VerifiableURI (LSP2 format).
+ * Encode grid JSON as a VerifiableURI (LSP2 format) using ERC725.js.
  *
- * VerifiableURI bytes layout:
+ * Uses `ERC725.encodeValueType('VerifiableURI', ...)` which produces the correct
+ * bytes layout:
  *   bytes2  hashFunctionSelector  — 0x6f357c6a (keccak256(utf8))
  *   bytes32 contentHash           — keccak256 of the raw JSON string
  *   bytes   uri                   — UTF-8 encoded data URI
@@ -34,7 +36,7 @@ const LSP6_ABI = [
  * to keep on-chain storage small.
  *
  * @param {object} gridData - The LSP28TheGrid JSON object
- * @returns {Uint8Array} Encoded VerifiableURI bytes
+ * @returns {string} Hex-encoded VerifiableURI bytes
  */
 function encodeVerifiableUri(gridData) {
   const jsonString = JSON.stringify(gridData);
@@ -42,14 +44,13 @@ function encodeVerifiableUri(gridData) {
   const base64Data = Buffer.from(jsonString).toString('base64');
   const dataUri = `data:application/json;base64,${base64Data}`;
 
-  // keccak256(utf8) hash-function selector (2 bytes)
-  const hashFunctionSelector = '0x6f357c6a';
-
-  return ethers.concat([
-    hashFunctionSelector,
-    contentHash,
-    ethers.toUtf8Bytes(dataUri)
-  ]);
+  return ERC725.encodeValueType('VerifiableURI', {
+    verification: {
+      method: '0x6f357c6a', // keccak256(utf8)
+      data: contentHash,
+    },
+    url: dataUri,
+  });
 }
 
 /**
